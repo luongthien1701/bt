@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Két sắt</title>
+</head>
+
+<body style="font-family: sans-serif">
+    <h2 style="text-align:center">🔐 KÉT SẮT THÔNG MINH</h2>
+
+    <h3 id="status" style="text-align:center">Status: ...</h3>
+
+    <div style="text-align:center; margin-bottom:20px">
+        <button onclick="send('OPEN')" style="background: green; color: white">
+      MỞ
+    </button>
+        <button onclick="send('CLOSE')" style="background: red; color: white">
+      ĐÓNG
+    </button>
+    </div>
+
+    <!-- ===== LAYOUT 2 CỘT ===== -->
+    <div style="display:flex; gap:40px; justify-content:center">
+
+        <!-- ===== LOG ===== -->
+        <div>
+            <h3>📜 Lịch sử</h3>
+            <ul id="log"></ul>
+        </div>
+
+        <!-- ===== MPU TABLE ===== -->
+        <div>
+            <h3>📊 MPU DATA</h3>
+            <table border="1" cellpadding="10">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>AX</th>
+                        <th>AY</th>
+                        <th>AZ</th>
+                        <th>GX</th>
+                        <th>GY</th>
+                        <th>GZ</th>
+                        <th>A</th>
+                        <th>G</th>
+                    </tr>
+                </thead>
+                <tbody id="mpuBody"></tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script>
+        async function send(cmd) {
+            await fetch("http://localhost:3000/control", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    cmd
+                }),
+            });
+        }
+
+        async function load() {
+            try {
+                // ===== STATUS =====
+                const s = await fetch("http://localhost:3000/status");
+                const st = await s.json();
+                document.getElementById("status").innerText = "Status: " + st.status;
+
+                // ===== LOG =====
+                const res = await fetch("http://localhost:3000/logs");
+                const data = await res.json();
+
+                const ul = document.getElementById("log");
+                ul.innerHTML = "";
+
+                data.forEach((l) => {
+                    const li = document.createElement("li");
+                    li.innerText = `${l.time} - ${l.message}`;
+                    ul.appendChild(li);
+                });
+
+                // ===== MPU REALTIME =====
+                const m = await fetch("http://localhost:3000/mpu");
+                const mpu = await m.json();
+
+                if (mpu && mpu.ax !== undefined) {
+                    const tbody = document.getElementById("mpuBody");
+
+                    const row = document.createElement("tr");
+
+                    const time = new Date().toLocaleTimeString();
+
+                    row.innerHTML = `
+    <td>${time}</td>
+    <td>${mpu.ax}</td>
+    <td>${mpu.ay}</td>
+    <td>${mpu.az}</td>
+    <td>${mpu.gx}</td>
+    <td>${mpu.gy}</td>
+    <td>${mpu.gz}</td>
+    <td>${Number(mpu.A).toFixed(2)}</td>
+    <td>${Number(mpu.G).toFixed(2)}</td>
+  `;
+
+                    // thêm dòng mới lên trên
+                    tbody.prepend(row);
+
+                    //  giới hạn 20 dòng (tránh lag)
+                    while (tbody.rows.length > 20) {
+                        tbody.deleteRow(-1);
+                    }
+                }
+
+            } catch (err) {
+                console.log("LOAD ERROR:", err);
+            }
+        }
+
+        setInterval(load, 1000);
+    </script>
+</body>
+
+</html>
